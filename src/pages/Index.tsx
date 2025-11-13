@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Monitor, Users, Tv } from "lucide-react";
+import { Monitor, Users, Tv, BarChart3, Settings, LogIn } from "lucide-react";
 
 const Index = () => {
   return (
@@ -49,21 +49,33 @@ const Index = () => {
             </Card>
           </Link>
 
-          <Link to="/operador" className="group">
+          <Link to="/auth" className="group">
             <Card className="p-8 hover:shadow-lg transition-all duration-300 border-2 hover:border-primary h-full">
               <div className="space-y-4">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Users className="w-8 h-8 text-primary-foreground" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold mb-2">Dashboard Operador</h3>
+                  <h3 className="text-2xl font-bold mb-2">Área de Operadores</h3>
                   <p className="text-muted-foreground">
-                    Controle completo das filas e chamadas
+                    Login para acesso ao dashboard e relatórios
                   </p>
                 </div>
               </div>
             </Card>
           </Link>
+        </div>
+
+        <div className="text-center pt-6">
+          <p className="text-muted-foreground mb-4">Acesso rápido para operadores:</p>
+          <div className="flex gap-4 justify-center">
+            <Link to="/auth">
+              <Button size="lg">
+                <LogIn className="mr-2 h-5 w-5" />
+                Fazer Login
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6 mt-8">

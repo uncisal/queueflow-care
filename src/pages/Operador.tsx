@@ -4,9 +4,10 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Home, Phone, CheckCircle, XCircle, RotateCcw } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Home, Phone, CheckCircle, XCircle, RotateCcw, LogOut } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 interface Ticket {
   id: string;
@@ -20,12 +21,13 @@ interface Ticket {
   category_prefix: string;
 }
 
-const Operador = () => {
+const OperadorContent = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [counterLocation, setCounterLocation] = useState("Guichê 1");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [categories, setCategories] = useState<any[]>([]);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchCategories();
@@ -189,15 +191,28 @@ const Operador = () => {
   const waitingTickets = tickets.filter((t) => t.status === "waiting");
   const calledTickets = tickets.filter((t) => t.status === "called");
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-soft">
       <div className="p-6 flex items-center justify-between border-b bg-card">
-        <Link to="/">
-          <Button variant="outline">
-            <Home className="mr-2 h-4 w-4" />
-            Início
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/">
+            <Button variant="outline">
+              <Home className="mr-2 h-4 w-4" />
+              Início
+            </Button>
+          </Link>
+          <Link to="/relatorios">
+            <Button variant="outline">Relatórios</Button>
+          </Link>
+          <Link to="/admin">
+            <Button variant="outline">Administração</Button>
+          </Link>
+        </div>
         <div className="flex items-center gap-4">
           <Input
             placeholder="Local de Atendimento"
@@ -205,6 +220,10 @@ const Operador = () => {
             onChange={(e) => setCounterLocation(e.target.value)}
             className="w-64"
           />
+          <Button variant="outline" onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Sair
+          </Button>
         </div>
       </div>
 
@@ -357,6 +376,14 @@ const Operador = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+const Operador = () => {
+  return (
+    <ProtectedRoute>
+      <OperadorContent />
+    </ProtectedRoute>
   );
 };
 
