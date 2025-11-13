@@ -14,7 +14,109 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      calls: {
+        Row: {
+          called_at: string | null
+          counter_location: string
+          id: string
+          ticket_id: string
+        }
+        Insert: {
+          called_at?: string | null
+          counter_location: string
+          id?: string
+          ticket_id: string
+        }
+        Update: {
+          called_at?: string | null
+          counter_location?: string
+          id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calls_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      categories: {
+        Row: {
+          active: boolean | null
+          color: string
+          created_at: string | null
+          id: string
+          name: string
+          prefix: string
+          priority_enabled: boolean | null
+        }
+        Insert: {
+          active?: boolean | null
+          color: string
+          created_at?: string | null
+          id?: string
+          name: string
+          prefix: string
+          priority_enabled?: boolean | null
+        }
+        Update: {
+          active?: boolean | null
+          color?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          prefix?: string
+          priority_enabled?: boolean | null
+        }
+        Relationships: []
+      }
+      tickets: {
+        Row: {
+          called_at: string | null
+          category_id: string
+          completed_at: string | null
+          counter_location: string | null
+          created_at: string | null
+          id: string
+          is_priority: boolean | null
+          status: string
+          ticket_number: string
+        }
+        Insert: {
+          called_at?: string | null
+          category_id: string
+          completed_at?: string | null
+          counter_location?: string | null
+          created_at?: string | null
+          id?: string
+          is_priority?: boolean | null
+          status?: string
+          ticket_number: string
+        }
+        Update: {
+          called_at?: string | null
+          category_id?: string
+          completed_at?: string | null
+          counter_location?: string | null
+          created_at?: string | null
+          id?: string
+          is_priority?: boolean | null
+          status?: string
+          ticket_number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
