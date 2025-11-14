@@ -62,6 +62,7 @@ const Totem = () => {
       }
 
       const ticketNumber = `${selectedCategory.prefix}${String(nextNumber).padStart(3, "0")}`;
+      const timestamp = new Date().toISOString();
 
       const { error } = await supabase.from("tickets").insert({
         ticket_number: ticketNumber,
@@ -71,6 +72,27 @@ const Totem = () => {
       });
 
       if (error) throw error;
+
+      // Enviar para impressão
+      try {
+        const { data: printResult } = await supabase.functions.invoke('print-ticket', {
+          body: {
+            ticketNumber,
+            categoryName: selectedCategory.name,
+            categoryPrefix: selectedCategory.prefix,
+            isPriority,
+            timestamp
+          }
+        });
+
+        console.log('Resultado da impressão:', printResult);
+        
+        if (printResult?.method === 'escpos' && printResult?.commands) {
+          console.log('Comandos ESC/POS gerados. Configure uma aplicação local para processar.');
+        }
+      } catch (printError) {
+        console.error('Erro ao imprimir:', printError);
+      }
 
       setGeneratedTicket(ticketNumber);
       toast({
