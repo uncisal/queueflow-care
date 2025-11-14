@@ -70,7 +70,12 @@ export const useVoiceAnnouncement = () => {
   };
 
   const announceTicket = (ticketNumber: string, counterLocation: string) => {
-    const announcement = `Senha ${formatTicketForSpeech(ticketNumber)}. Guichê ${counterLocation}`;
+    // Se counterLocation já contém "guichê" ou "Guichê", não adicionar novamente
+    const locationText = counterLocation.toLowerCase().includes('guichê') 
+      ? counterLocation 
+      : `Guichê ${counterLocation}`;
+    
+    const announcement = `Senha ${formatTicketForSpeech(ticketNumber)}. ${locationText}`;
     speak(announcement);
   };
 
@@ -93,7 +98,7 @@ export const useVoiceAnnouncement = () => {
   };
 
   const testVoice = () => {
-    speak("Testando sistema de voz. Senha A, zero, zero, um. Guichê um.");
+    speak("Testando sistema de voz. Senha A, zero, zero, um. Guichê 1.");
   };
 
   return {
