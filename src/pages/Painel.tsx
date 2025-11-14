@@ -2,8 +2,17 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Home, Volume2 } from "lucide-react";
+import { Home, Volume2, VolumeX, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useVoiceAnnouncement } from "@/hooks/useVoiceAnnouncement";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface Call {
   id: string;
@@ -16,6 +25,7 @@ interface Call {
 const Painel = () => {
   const [currentCall, setCurrentCall] = useState<Call | null>(null);
   const [recentCalls, setRecentCalls] = useState<Call[]>([]);
+  const { settings, setSettings, isSpeaking, announceTicket, testVoice } = useVoiceAnnouncement();
 
   useEffect(() => {
     fetchCalls();
@@ -30,8 +40,29 @@ const Painel = () => {
           schema: "public",
           table: "calls",
         },
-        (payload) => {
+        async (payload) => {
           console.log("Nova chamada:", payload);
+          
+          // Buscar detalhes da chamada para anunciar
+          const { data: callData } = await supabase
+            .from("calls")
+            .select(`
+              counter_location,
+              tickets (
+                ticket_number
+              )
+            `)
+            .eq("id", payload.new.id)
+            .single();
+
+          if (callData?.tickets) {
+            const ticketNumber = callData.tickets.ticket_number;
+            const counterLocation = callData.counter_location;
+            
+            // Anunciar a senha
+            announceTicket(ticketNumber, counterLocation);
+          }
+          
           fetchCalls();
           playNotificationSound();
         }
@@ -100,13 +131,73 @@ const Painel = () => {
 
   return (
     <div className="min-h-screen bg-gradient-soft">
-      <div className="p-6">
+      <div className="p-6 flex justify-between items-center">
         <Link to="/">
           <Button variant="outline" size="lg">
             <Home className="mr-2 h-5 w-5" />
             Início
           </Button>
         </Link>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="lg">
+              <Settings className="mr-2 h-5 w-5" />
+              Configurar Voz
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80" align="end">
+            <div className="space-y-4">
+              <h4 className="font-semibold">Configurações de Voz</h4>
+              
+              <div className="flex items-center justify-between">
+                <Label htmlFor="voice-enabled">Anúncios por voz</Label>
+                <Switch
+                  id="voice-enabled"
+                  checked={settings.enabled}
+                  onCheckedChange={(enabled) =>
+                    setSettings({ ...settings, enabled })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Volume: {Math.round(settings.volume * 100)}%</Label>
+                <Slider
+                  value={[settings.volume * 100]}
+                  onValueChange={([value]) =>
+                    setSettings({ ...settings, volume: value / 100 })
+                  }
+                  max={100}
+                  step={5}
+                  disabled={!settings.enabled}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Velocidade: {settings.rate.toFixed(1)}x</Label>
+                <Slider
+                  value={[settings.rate * 100]}
+                  onValueChange={([value]) =>
+                    setSettings({ ...settings, rate: value / 100 })
+                  }
+                  min={50}
+                  max={150}
+                  step={10}
+                  disabled={!settings.enabled}
+                />
+              </div>
+
+              <Button
+                onClick={testVoice}
+                className="w-full"
+                disabled={!settings.enabled || isSpeaking}
+              >
+                {isSpeaking ? "Falando..." : "Testar Voz"}
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <div className="container mx-auto p-8 space-y-8">
@@ -121,7 +212,13 @@ const Painel = () => {
           <Card className="p-12 shadow-lg border-4 border-primary animate-in fade-in">
             <div className="text-center space-y-6">
               <div className="flex items-center justify-center gap-4">
-                <Volume2 className="w-12 h-12 text-primary animate-pulse" />
+                {settings.enabled && isSpeaking ? (
+                  <Volume2 className="w-12 h-12 text-primary animate-pulse" />
+                ) : settings.enabled ? (
+                  <Volume2 className="w-12 h-12 text-primary" />
+                ) : (
+                  <VolumeX className="w-12 h-12 text-muted-foreground" />
+                )}
                 <h2 className="text-3xl font-bold">Chamando</h2>
               </div>
 
