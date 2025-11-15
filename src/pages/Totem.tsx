@@ -46,32 +46,17 @@ const Totem = () => {
     setLoading(true);
 
     try {
-      // Buscar o último número da categoria
-      const { data: lastTicket } = await supabase
-        .from("tickets")
-        .select("ticket_number")
-        .like("ticket_number", `${selectedCategory.prefix}%`)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      let nextNumber = 1;
-      if (lastTicket) {
-        const lastNumber = parseInt(lastTicket.ticket_number.replace(selectedCategory.prefix, ""));
-        nextNumber = lastNumber + 1;
-      }
-
-      const ticketNumber = `${selectedCategory.prefix}${String(nextNumber).padStart(3, "0")}`;
-      const timestamp = new Date().toISOString();
-
-      const { error } = await supabase.from("tickets").insert({
-        ticket_number: ticketNumber,
-        category_id: selectedCategory.id,
-        is_priority: isPriority,
-        status: "waiting",
+      // Use secure server-side ticket generation with proper locking
+      const { data: ticketNumber, error } = await supabase.rpc('generate_ticket_number', {
+        p_category_id: selectedCategory.id,
+        p_prefix: selectedCategory.prefix,
+        p_is_priority: isPriority
       });
 
       if (error) throw error;
+      if (!ticketNumber) throw new Error('Failed to generate ticket number');
+
+      const timestamp = new Date().toISOString();
 
       // Enviar para impressão
       try {
