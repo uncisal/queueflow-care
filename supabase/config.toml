@@ -1,4 +1,4 @@
 project_id = "yucshmaxnwsdnlbhtkcj"
 
 [functions.print-ticket]
-verify_jwt = true
+verify_jwt = false

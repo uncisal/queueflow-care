@@ -197,6 +197,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_ticket_number: {
+        Args: {
+          p_category_id: string
+          p_is_priority: boolean
+          p_prefix: string
+        }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["user_role"]
