@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import Relatorios from "./pages/Relatorios";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -25,9 +26,9 @@ const App = () => (
           <Route path="/totem" element={<Totem />} />
           <Route path="/painel" element={<Painel />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/operador" element={<Operador />} />
-          <Route path="/relatorios" element={<Relatorios />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/operador" element={<ProtectedRoute><Operador /></ProtectedRoute>} />
+          <Route path="/relatorios" element={<ProtectedRoute><Relatorios /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

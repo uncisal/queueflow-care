@@ -9,6 +9,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, UserPlus, LogIn, Home } from "lucide-react";
 import { Link } from "react-router-dom";
+import { z } from "zod";
+
+const authSchema = z.object({
+  email: z.string().email("Email inválido"),
+  password: z.string()
+    .min(8, "Senha deve ter no mínimo 8 caracteres")
+    .regex(/[A-Z]/, "Senha deve conter pelo menos uma letra maiúscula")
+    .regex(/[0-9]/, "Senha deve conter pelo menos um número"),
+  fullName: z.string().min(2, "Nome deve ter no mínimo 2 caracteres").optional(),
+});
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -38,13 +48,18 @@ const Auth = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password || !fullName) {
-      toast({
-        title: "Campos obrigatórios",
-        description: "Preencha todos os campos",
-        variant: "destructive",
-      });
-      return;
+    
+    try {
+      authSchema.parse({ email, password, fullName });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Erro de validação",
+          description: error.errors[0].message,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setLoading(true);
@@ -82,13 +97,18 @@ const Auth = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast({
-        title: "Campos obrigatórios",
-        description: "Preencha email e senha",
-        variant: "destructive",
-      });
-      return;
+    
+    try {
+      authSchema.omit({ fullName: true }).parse({ email, password });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Erro de validação",
+          description: error.errors[0].message,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setLoading(true);
