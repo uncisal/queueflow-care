@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Home, LogOut, Save, Plus, Trash2, Edit } from "lucide-react";
+import { Home, LogOut, Save, Plus, Trash2, UserPlus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {
@@ -16,6 +16,24 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { z } from "zod";
+
+const userSchema = z.object({
+  email: z.string().email("Email inválido"),
+  password: z.string()
+    .min(8, "Senha deve ter no mínimo 8 caracteres")
+    .regex(/[A-Z]/, "Senha deve conter pelo menos uma letra maiúscula")
+    .regex(/[0-9]/, "Senha deve conter pelo menos um número"),
+  fullName: z.string().min(2, "Nome deve ter no mínimo 2 caracteres"),
+  role: z.enum(["operador", "supervisor", "administrador"]),
+});
 
 interface Category {
   id: string;
@@ -28,7 +46,6 @@ interface Category {
 
 const AdminContent = () => {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [newCategory, setNewCategory] = useState({
     name: "",
     prefix: "",
@@ -36,6 +53,13 @@ const AdminContent = () => {
     priority_enabled: false,
   });
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [userDialogOpen, setUserDialogOpen] = useState(false);
+  const [newUser, setNewUser] = useState({
+    email: "",
+    password: "",
+    fullName: "",
+    role: "operador" as "operador" | "supervisor" | "administrador",
+  });
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -144,6 +168,53 @@ const AdminContent = () => {
     fetchCategories();
   };
 
+  const handleCreateUser = async () => {
+    try {
+      userSchema.parse(newUser);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Erro de validação",
+          description: error.errors[0].message,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    const { data: { user }, error } = await supabase.auth.admin.createUser({
+      email: newUser.email,
+      password: newUser.password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: newUser.fullName,
+        role: newUser.role,
+      },
+    });
+
+    if (error) {
+      toast({
+        title: "Erro ao criar usuário",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Usuário criado com sucesso!",
+      description: `${newUser.fullName} foi adicionado ao sistema.`,
+    });
+
+    setNewUser({
+      email: "",
+      password: "",
+      fullName: "",
+      role: "operador",
+    });
+    setUserDialogOpen(false);
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/");
@@ -177,123 +248,213 @@ const AdminContent = () => {
           <div>
             <h1 className="text-3xl font-bold mb-2">Painel Administrativo</h1>
             <p className="text-muted-foreground">
-              Gerencie categorias e configurações do sistema
+              Gerencie categorias, usuários e configurações do sistema
             </p>
           </div>
 
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Categoria
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Criar Nova Categoria</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="cat-name">Nome</Label>
-                  <Input
-                    id="cat-name"
-                    value={newCategory.name}
-                    onChange={(e) =>
-                      setNewCategory({ ...newCategory, name: e.target.value })
-                    }
-                    placeholder="Ex: Atendimento Geral"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="cat-prefix">Prefixo (1 letra)</Label>
-                  <Input
-                    id="cat-prefix"
-                    value={newCategory.prefix}
-                    onChange={(e) =>
-                      setNewCategory({
-                        ...newCategory,
-                        prefix: e.target.value.toUpperCase().slice(0, 1),
-                      })
-                    }
-                    placeholder="Ex: F"
-                    maxLength={1}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="cat-color">Cor</Label>
-                  <Input
-                    id="cat-color"
-                    type="color"
-                    value={newCategory.color}
-                    onChange={(e) =>
-                      setNewCategory({ ...newCategory, color: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="cat-priority">Habilitar Prioridade</Label>
-                  <Switch
-                    id="cat-priority"
-                    checked={newCategory.priority_enabled}
-                    onCheckedChange={(checked) =>
-                      setNewCategory({ ...newCategory, priority_enabled: checked })
-                    }
-                  />
-                </div>
-
-                <Button onClick={handleSaveCategory} className="w-full">
-                  <Save className="mr-2 h-4 w-4" />
-                  Salvar Categoria
+          <div className="flex gap-2">
+            <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="secondary">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Novo Usuário
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Criar Novo Usuário</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="user-name">Nome Completo</Label>
+                    <Input
+                      id="user-name"
+                      value={newUser.fullName}
+                      onChange={(e) =>
+                        setNewUser({ ...newUser, fullName: e.target.value })
+                      }
+                      placeholder="Ex: João Silva"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="user-email">Email</Label>
+                    <Input
+                      id="user-email"
+                      type="email"
+                      value={newUser.email}
+                      onChange={(e) =>
+                        setNewUser({ ...newUser, email: e.target.value })
+                      }
+                      placeholder="Ex: joao@email.com"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="user-password">Senha</Label>
+                    <Input
+                      id="user-password"
+                      type="password"
+                      value={newUser.password}
+                      onChange={(e) =>
+                        setNewUser({ ...newUser, password: e.target.value })
+                      }
+                      placeholder="Mínimo 8 caracteres"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="user-role">Função</Label>
+                    <Select
+                      value={newUser.role}
+                      onValueChange={(value: "operador" | "supervisor" | "administrador") =>
+                        setNewUser({ ...newUser, role: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="operador">Operador</SelectItem>
+                        <SelectItem value="supervisor">Supervisor</SelectItem>
+                        <SelectItem value="administrador">Administrador</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button onClick={handleCreateUser} className="w-full">
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Criar Usuário
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova Categoria
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Criar Nova Categoria</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cat-name">Nome</Label>
+                    <Input
+                      id="cat-name"
+                      value={newCategory.name}
+                      onChange={(e) =>
+                        setNewCategory({ ...newCategory, name: e.target.value })
+                      }
+                      placeholder="Ex: Atendimento Geral"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="cat-prefix">Prefixo (1 letra)</Label>
+                    <Input
+                      id="cat-prefix"
+                      value={newCategory.prefix}
+                      onChange={(e) =>
+                        setNewCategory({
+                          ...newCategory,
+                          prefix: e.target.value.toUpperCase().slice(0, 1),
+                        })
+                      }
+                      placeholder="Ex: F"
+                      maxLength={1}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="cat-color">Cor</Label>
+                    <Input
+                      id="cat-color"
+                      type="color"
+                      value={newCategory.color}
+                      onChange={(e) =>
+                        setNewCategory({ ...newCategory, color: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="cat-priority"
+                      checked={newCategory.priority_enabled}
+                      onCheckedChange={(checked) =>
+                        setNewCategory({
+                          ...newCategory,
+                          priority_enabled: checked,
+                        })
+                      }
+                    />
+                    <Label htmlFor="cat-priority">Permitir senha prioritária</Label>
+                  </div>
+
+                  <Button onClick={handleSaveCategory} className="w-full">
+                    <Save className="mr-2 h-4 w-4" />
+                    Salvar Categoria
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <div className="grid gap-4">
           {categories.map((category) => (
             <Card key={category.id} className="p-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div
-                    className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold text-white"
-                    style={{ background: category.color }}
-                  >
-                    {category.prefix}
+                <div className="flex-1 space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold"
+                      style={{ backgroundColor: category.color }}
+                    >
+                      {category.prefix}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">{category.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Prefixo: {category.prefix}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-xl font-bold">{category.name}</h3>
-                    <div className="flex gap-4 mt-2">
-                      <div className="flex items-center gap-2">
-                        <Label>Ativa</Label>
-                        <Switch
-                          checked={category.active}
-                          onCheckedChange={(checked) =>
-                            handleUpdateCategory({ ...category, active: checked })
-                          }
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Label>Prioridade</Label>
-                        <Switch
-                          checked={category.priority_enabled}
-                          onCheckedChange={(checked) =>
-                            handleUpdateCategory({
-                              ...category,
-                              priority_enabled: checked,
-                            })
-                          }
-                        />
-                      </div>
+
+                  <div className="flex gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={category.active}
+                        onCheckedChange={(checked) =>
+                          handleUpdateCategory({ ...category, active: checked })
+                        }
+                      />
+                      <Label>Ativa</Label>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={category.priority_enabled}
+                        onCheckedChange={(checked) =>
+                          handleUpdateCategory({
+                            ...category,
+                            priority_enabled: checked,
+                          })
+                        }
+                      />
+                      <Label>Prioridade</Label>
                     </div>
                   </div>
                 </div>
+
                 <Button
                   variant="destructive"
-                  size="sm"
+                  size="icon"
                   onClick={() => handleDeleteCategory(category.id)}
                 >
                   <Trash2 className="h-4 w-4" />
