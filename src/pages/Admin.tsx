@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Home, LogOut, Save, Plus, Trash2, UserPlus } from "lucide-react";
+import { Home, LogOut, Save, Plus, Trash2, UserPlus, Edit } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import {
@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { z } from "zod";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const userSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -44,8 +45,18 @@ interface Category {
   active: boolean;
 }
 
+interface User {
+  id: string;
+  email: string;
+  full_name: string;
+  role: "operador" | "supervisor" | "administrador";
+  active: boolean;
+  created_at: string;
+}
+
 const AdminContent = () => {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [newCategory, setNewCategory] = useState({
     name: "",
     prefix: "",
@@ -54,6 +65,8 @@ const AdminContent = () => {
   });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
+  const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [newUser, setNewUser] = useState({
     email: "",
     password: "",
@@ -65,6 +78,7 @@ const AdminContent = () => {
 
   useEffect(() => {
     fetchCategories();
+    fetchUsers();
   }, []);
 
   const fetchCategories = async () => {
@@ -79,6 +93,25 @@ const AdminContent = () => {
     }
 
     setCategories(data || []);
+  };
+
+  const fetchUsers = async () => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching users:", error);
+      toast({
+        title: "Erro ao carregar usuários",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUsers(data || []);
   };
 
   const handleSaveCategory = async () => {
@@ -213,6 +246,74 @@ const AdminContent = () => {
       role: "operador",
     });
     setUserDialogOpen(false);
+    fetchUsers();
+  };
+
+  const handleUpdateUser = async () => {
+    if (!selectedUser) return;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: selectedUser.full_name,
+        email: selectedUser.email,
+        role: selectedUser.role,
+      })
+      .eq("id", selectedUser.id);
+
+    if (error) {
+      toast({
+        title: "Erro ao atualizar usuário",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Atualizar role na tabela user_roles
+    const { error: roleError } = await supabase
+      .from("user_roles")
+      .update({ role: selectedUser.role })
+      .eq("user_id", selectedUser.id);
+
+    if (roleError) {
+      toast({
+        title: "Erro ao atualizar role",
+        description: roleError.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Usuário atualizado com sucesso!",
+    });
+
+    setEditUserDialogOpen(false);
+    setSelectedUser(null);
+    fetchUsers();
+  };
+
+  const handleToggleUserActive = async (user: User) => {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ active: !user.active })
+      .eq("id", user.id);
+
+    if (error) {
+      toast({
+        title: "Erro ao atualizar status",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: user.active ? "Usuário desativado" : "Usuário ativado",
+    });
+
+    fetchUsers();
   };
 
   const handleLogout = async () => {
@@ -251,9 +352,153 @@ const AdminContent = () => {
               Gerencie categorias, usuários e configurações do sistema
             </p>
           </div>
+        </div>
 
-          <div className="flex gap-2">
-            <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
+        <Tabs defaultValue="categories" className="w-full">
+          <TabsList>
+            <TabsTrigger value="categories">Categorias</TabsTrigger>
+            <TabsTrigger value="users">Usuários</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="categories" className="space-y-4">
+            <div className="flex justify-end">
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nova Categoria
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Criar Nova Categoria</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="cat-name">Nome</Label>
+                      <Input
+                        id="cat-name"
+                        value={newCategory.name}
+                        onChange={(e) =>
+                          setNewCategory({ ...newCategory, name: e.target.value })
+                        }
+                        placeholder="Ex: Atendimento Geral"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="cat-prefix">Prefixo (1 letra)</Label>
+                      <Input
+                        id="cat-prefix"
+                        value={newCategory.prefix}
+                        onChange={(e) =>
+                          setNewCategory({
+                            ...newCategory,
+                            prefix: e.target.value.toUpperCase().slice(0, 1),
+                          })
+                        }
+                        placeholder="Ex: F"
+                        maxLength={1}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="cat-color">Cor</Label>
+                      <Input
+                        id="cat-color"
+                        type="color"
+                        value={newCategory.color}
+                        onChange={(e) =>
+                          setNewCategory({ ...newCategory, color: e.target.value })
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="cat-priority"
+                        checked={newCategory.priority_enabled}
+                        onCheckedChange={(checked) =>
+                          setNewCategory({
+                            ...newCategory,
+                            priority_enabled: checked,
+                          })
+                        }
+                      />
+                      <Label htmlFor="cat-priority">Permitir senha prioritária</Label>
+                    </div>
+
+                    <Button onClick={handleSaveCategory} className="w-full">
+                      <Save className="mr-2 h-4 w-4" />
+                      Salvar Categoria
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            <div className="grid gap-4">
+              {categories.map((category) => (
+                <Card key={category.id} className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 space-y-4">
+                      <div className="flex items-center gap-4">
+                        <div
+                          className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold"
+                          style={{ backgroundColor: category.color }}
+                        >
+                          {category.prefix}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-lg">{category.name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Prefixo: {category.prefix}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-4">
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            checked={category.active}
+                            onCheckedChange={(checked) =>
+                              handleUpdateCategory({ ...category, active: checked })
+                            }
+                          />
+                          <Label>Ativa</Label>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            checked={category.priority_enabled}
+                            onCheckedChange={(checked) =>
+                              handleUpdateCategory({
+                                ...category,
+                                priority_enabled: checked,
+                              })
+                            }
+                          />
+                          <Label>Prioridade</Label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => handleDeleteCategory(category.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="users" className="space-y-4">
+            <div className="flex justify-end">
+              <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="secondary">
                   <UserPlus className="mr-2 h-4 w-4" />
@@ -330,140 +575,115 @@ const AdminContent = () => {
               </DialogContent>
             </Dialog>
 
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Nova Categoria
-                </Button>
-              </DialogTrigger>
+            <Dialog open={editUserDialogOpen} onOpenChange={setEditUserDialogOpen}>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Criar Nova Categoria</DialogTitle>
+                  <DialogTitle>Editar Usuário</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="cat-name">Nome</Label>
-                    <Input
-                      id="cat-name"
-                      value={newCategory.name}
-                      onChange={(e) =>
-                        setNewCategory({ ...newCategory, name: e.target.value })
-                      }
-                      placeholder="Ex: Atendimento Geral"
-                    />
-                  </div>
+                {selectedUser && (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-name">Nome Completo</Label>
+                      <Input
+                        id="edit-name"
+                        value={selectedUser.full_name}
+                        onChange={(e) =>
+                          setSelectedUser({ ...selectedUser, full_name: e.target.value })
+                        }
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="cat-prefix">Prefixo (1 letra)</Label>
-                    <Input
-                      id="cat-prefix"
-                      value={newCategory.prefix}
-                      onChange={(e) =>
-                        setNewCategory({
-                          ...newCategory,
-                          prefix: e.target.value.toUpperCase().slice(0, 1),
-                        })
-                      }
-                      placeholder="Ex: F"
-                      maxLength={1}
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-email">Email</Label>
+                      <Input
+                        id="edit-email"
+                        type="email"
+                        value={selectedUser.email}
+                        onChange={(e) =>
+                          setSelectedUser({ ...selectedUser, email: e.target.value })
+                        }
+                      />
+                    </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="cat-color">Cor</Label>
-                    <Input
-                      id="cat-color"
-                      type="color"
-                      value={newCategory.color}
-                      onChange={(e) =>
-                        setNewCategory({ ...newCategory, color: e.target.value })
-                      }
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-role">Função</Label>
+                      <Select
+                        value={selectedUser.role}
+                        onValueChange={(value: "operador" | "supervisor" | "administrador") =>
+                          setSelectedUser({ ...selectedUser, role: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="operador">Operador</SelectItem>
+                          <SelectItem value="supervisor">Supervisor</SelectItem>
+                          <SelectItem value="administrador">Administrador</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="cat-priority"
-                      checked={newCategory.priority_enabled}
-                      onCheckedChange={(checked) =>
-                        setNewCategory({
-                          ...newCategory,
-                          priority_enabled: checked,
-                        })
-                      }
-                    />
-                    <Label htmlFor="cat-priority">Permitir senha prioritária</Label>
+                    <Button onClick={handleUpdateUser} className="w-full">
+                      <Save className="mr-2 h-4 w-4" />
+                      Salvar Alterações
+                    </Button>
                   </div>
-
-                  <Button onClick={handleSaveCategory} className="w-full">
-                    <Save className="mr-2 h-4 w-4" />
-                    Salvar Categoria
-                  </Button>
-                </div>
+                )}
               </DialogContent>
             </Dialog>
           </div>
-        </div>
 
-        <div className="grid gap-4">
-          {categories.map((category) => (
-            <Card key={category.id} className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1 space-y-4">
-                  <div className="flex items-center gap-4">
-                    <div
-                      className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold"
-                      style={{ backgroundColor: category.color }}
-                    >
-                      {category.prefix}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg">{category.name}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Prefixo: {category.prefix}
-                      </p>
+          <div className="grid gap-4">
+            {users.map((user) => (
+              <Card key={user.id} className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold">
+                        {user.full_name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">{user.full_name}</h3>
+                        <p className="text-sm text-muted-foreground">{user.email}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs px-2 py-1 rounded-full bg-secondary text-secondary-foreground">
+                            {user.role === "administrador" ? "Administrador" : 
+                             user.role === "supervisor" ? "Supervisor" : "Operador"}
+                          </span>
+                          <span className={`text-xs px-2 py-1 rounded-full ${
+                            user.active ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+                          }`}>
+                            {user.active ? "Ativo" : "Inativo"}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex gap-4">
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        checked={category.active}
-                        onCheckedChange={(checked) =>
-                          handleUpdateCategory({ ...category, active: checked })
-                        }
-                      />
-                      <Label>Ativa</Label>
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        checked={category.priority_enabled}
-                        onCheckedChange={(checked) =>
-                          handleUpdateCategory({
-                            ...category,
-                            priority_enabled: checked,
-                          })
-                        }
-                      />
-                      <Label>Prioridade</Label>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setEditUserDialogOpen(true);
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Switch
+                      checked={user.active}
+                      onCheckedChange={() => handleToggleUserActive(user)}
+                    />
                   </div>
                 </div>
-
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  onClick={() => handleDeleteCategory(category.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </div>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
     </div>
   );
 };
