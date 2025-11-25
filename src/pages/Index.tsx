@@ -2,18 +2,14 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Monitor, Users, Tv, BarChart3, Settings, LogIn } from "lucide-react";
-
 const Index = () => {
-  return (
-    <div className="min-h-screen bg-gradient-soft flex flex-col items-center justify-center p-6">
+  return <div className="min-h-screen bg-gradient-soft flex flex-col items-center justify-center p-6">
       <div className="max-w-6xl w-full space-y-8">
         <div className="text-center space-y-4">
           <h1 className="text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent">
             Sistema de Gerenciamento de Filas
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Solução completa para gestão de atendimento em recepções hospitalares e serviços públicos
-          </p>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">Solução completa para gestão de atendimento em recepções clinicas, hospitalares e serviços públicos</p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
@@ -128,8 +124,6 @@ const Index = () => {
           </Card>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
